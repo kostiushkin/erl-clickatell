@@ -129,14 +129,14 @@ call_status(MessageID, SessionID) ->
   end.
 
 call(URL, PropList) ->
-  {ok,{{_,200,_},_,ResponseText}} = make_request(URL, PropList),
+  {ok,{{_,200,_},_,ResponseText}} = do_request(URL, PropList),
   Response = parse_response(ResponseText),
   case proplists:get_value(err, Response) of
     undefined -> {ok,    Response};
     Error     -> {error, Error}
   end.
 
-make_request(Path, PropList) ->
+do_request(Path, PropList) ->
   URL         = ?BASE_URL ++ Path,
   Headers     = [{"User-Agent", "erl-clickatell"}],
   Payload     = proplist_to_params(PropList),
