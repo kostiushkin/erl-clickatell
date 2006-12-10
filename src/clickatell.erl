@@ -79,11 +79,9 @@ handle_call({status, MessageID}, _From, SessionID) ->
 handle_cast(stop, State) ->
   {stop, normal, State}.
 
-handle_info({'EXIT', _Port, Reason}, SessionID) ->
-  {stop, {port_terminated, Reason}, SessionID}.
+handle_info(_Info, State) ->
+  {noreply, State}.
 
-terminate({port_terminated, _Reason}, _State) ->
-  ok;
 terminate(_Reason, _State) ->
   ok.
 
