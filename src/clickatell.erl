@@ -2,14 +2,15 @@
 
 -behaviour(gen_server).
 
+-export([start_link/3,
+         stop/0]).
 -export([balance/0,
          check/1,
          cost/1,
          ping/0,
          send/2,
          status/1]).
--export([start_link/3,
-         init/1,
+-export([init/1,
          handle_call/3,
          handle_cast/2,
          handle_info/2,
@@ -29,6 +30,13 @@
          parse_response/1]).
 
 -define(BASE_URL, "https://api.clickatell.com").
+
+%% Starting
+start_link(User, Pass, API) ->
+  gen_server:start_link({local, ?MODULE}, ?MODULE, [User, Pass, API], []).
+
+stop() ->
+  gen_server:cast(?MODULE, stop).
 
 %% Interface
 balance() ->
@@ -50,9 +58,6 @@ status(MessageID) ->
   gen_server:call(?MODULE, {status, MessageID}).
 
 %% Server
-start_link(User, Pass, API) ->
-  gen_server:start_link({local, ?MODULE}, ?MODULE, [User, Pass, API], []).
-
 init([User, Pass, API]) ->
   process_flag(trap_exit, true),
   SessionID = call_login(User, Pass, API),
@@ -71,8 +76,8 @@ handle_call({send, To, Message}, _From, SessionID) ->
 handle_call({status, MessageID}, _From, SessionID) ->
   {reply, call_status(MessageID, SessionID), _From, SessionID}.
 
-handle_cast(_Msg, State) ->
-  {noreply, State}.
+handle_cast(stop, State) ->
+  {stop, normal, State}.
 
 handle_info({'EXIT', _Port, Reason}, SessionID) ->
   {stop, {port_terminated, Reason}, SessionID}.
