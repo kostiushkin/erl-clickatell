@@ -60,8 +60,10 @@ status(MessageID) ->
 %% Server
 init([User, Pass, API]) ->
   process_flag(trap_exit, true),
-  SessionID = call_login(User, Pass, API),
-  {ok, SessionID}.
+  case call_login(User, Pass, API) of
+    {error, Error} -> {stop, Error};
+    SessionID      -> {ok,   SessionID}
+  end.
 
 handle_call({balance}, _From, SessionID) ->
   {reply, call_balance(SessionID), SessionID};
