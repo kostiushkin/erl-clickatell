@@ -92,7 +92,7 @@ code_change(_OldVsn, State, _Extra) ->
 call_balance(SessionID) ->
   case call("/http/getbalance", [{session_id, SessionID}]) of
     {ok, PropList} -> list_to_float(proplists:get_value(credit, PropList));
-    {error, Error} -> throw(Error)
+    {error, Error} -> {error, Error}
   end.
 
 call_check(To, SessionID) ->
@@ -104,31 +104,31 @@ call_check(To, SessionID) ->
 call_cost(MessageID, SessionID) ->
   case call("/http/getmsgcharge", [{apimsgid, MessageID}, {session_id, SessionID}]) of
     {ok, PropList} -> str_to_number(proplists:get_value(charge, PropList));
-    {error, Error} -> throw(Error)
+    {error, Error} -> {error, Error}
   end.
 
 call_login(User, Pass, API) ->
   case call("/http/auth", [{user, User}, {password, Pass}, {api_id, API}]) of
     {ok, PropList} -> proplists:get_value(ok, PropList);
-    {error, Error} -> throw(Error)
+    {error, Error} -> {error, Error}
   end.
 
 call_ping(SessionID) ->
   case call("/http/ping", [{session_id, SessionID}]) of
     {ok, _}        -> true;
-    {error, Error} -> throw(Error)
+    {error, Error} -> {error, Error}
   end.
 
 call_send(To, Message, SessionID) ->
   case call("/http/sendmsg", [{to, To}, {text, Message}, {session_id, SessionID}]) of
     {ok, PropList} -> proplists:get_value(id, PropList);
-    {error, Error} -> throw(Error)
+    {error, Error} -> {error, Error}
   end.
 
 call_status(MessageID, SessionID) ->
   case call("/http/querymsg", [{apimsgid, MessageID}, {session_id, SessionID}]) of
     {ok, PropList} -> str_to_number(proplists:get_value(status, PropList));
-    {error, Error} -> throw(Error)
+    {error, Error} -> {error, Error}
   end.
 
 call(URL, PropList) ->
