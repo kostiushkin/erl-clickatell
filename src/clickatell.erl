@@ -15,7 +15,8 @@
          handle_cast/2,
          handle_info/2,
          terminate/2,
-         code_change/3]).
+         code_change/3,
+         ping_loop/2]).
 -export([call_balance/1,
          call_check/2,
          call_cost/2,
@@ -60,8 +61,11 @@ status(MessageID) ->
 init([User, Pass, API]) ->
   process_flag(trap_exit, true),
   case call_login(User, Pass, API) of
-    {error, Error} -> {stop, Error};
-    SessionID      -> {ok,   SessionID}
+    {error, Error} ->
+      {stop, Error};
+    SessionID ->
+      spawn_link(?MODULE, ping_loop, [timer:minutes(5), SessionID]),
+      {ok,   SessionID}
   end.
 
 handle_call({balance}, _From, SessionID) ->
@@ -88,6 +92,13 @@ terminate(_Reason, _State) ->
 
 code_change(_OldVsn, State, _Extra) ->
   {ok, State}.
+
+%% Pinging
+ping_loop(Time, SessionID) ->
+  case call_ping(SessionID) of
+    true           -> timer:sleep(Time), ping_loop(Time, SessionID);
+    {error, Error} -> exit(Error)
+  end.
 
 %% Calling
 call_balance(SessionID) ->
