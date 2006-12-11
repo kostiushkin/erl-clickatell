@@ -84,8 +84,9 @@ handle_call({status, MessageID}, _From, SessionID) ->
 handle_cast(stop, State) ->
   {stop, normal, State}.
 
-handle_info({'EXIT', ping_failed}, State) ->
-  {stop, ping_failed, State}.
+handle_info({'EXIT', {ping_failed, Error}}, State) ->
+  error_logger:error_info("The ping process failed"),
+  {stop, {ping_failed, Error}, State}.
 
 terminate(_Reason, _State) ->
   ok.
@@ -95,9 +96,10 @@ code_change(_OldVsn, State, _Extra) ->
 
 %% Pinging
 ping_loop(Time, SessionID) ->
+  error_logger:info_report("The ping process is pinging"),
   case call_ping(SessionID) of
     true           -> timer:sleep(Time), ping_loop(Time, SessionID);
-    {error, Error} -> exit(ping_failed)
+    {error, Error} -> exit({ping_failed, Error})
   end.
 
 %% Calling
