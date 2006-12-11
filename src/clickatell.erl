@@ -171,12 +171,6 @@ errorcode(String) ->
   list_to_integer(string:substr(String, 1, 3)).
 
 %% Coercion
-to_list(X) ->
-  if list(X)    -> X;
-     atom(X)    -> atom_to_list(X);
-     integer(X) -> integer_to_list(X)
-  end.
-
 str_to_number(Str) ->
   try              list_to_integer(Str)
   catch error:_ -> list_to_float(Str)
@@ -185,7 +179,7 @@ str_to_number(Str) ->
 %% Encoding
 proplist_to_params(PropList) ->
   lists:foldr(fun({Key,Val}, Acc) ->
-    yaws_api:url_encode(to_list(Key)) ++ "=" ++ yaws_api:url_encode(to_list(Val)) ++
+    yaws_api:url_encode(yaws:to_string(Key)) ++ "=" ++ yaws_api:url_encode(yaws:to_string(Val)) ++
     case Acc of
       "" -> "";
       _  -> "&" ++ Acc
