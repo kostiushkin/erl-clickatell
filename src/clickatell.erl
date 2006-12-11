@@ -29,7 +29,8 @@
 -export([proplist_to_params/1,
          parse_response/1]).
 
--define(BASE_URL, "https://api.clickatell.com").
+-define(BASE_URL,  "https://api.clickatell.com").
+-define(PING_WAIT, timer:minutes(5)).
 
 %% Starting
 start_link(User, Pass, API) ->
@@ -64,8 +65,8 @@ init([User, Pass, API]) ->
     {error, Error} ->
       {stop, Error};
     SessionID ->
-      spawn_link(?MODULE, ping_loop, [timer:minutes(5), SessionID]),
-      {ok,   SessionID}
+      spawn_link(?MODULE, ping_loop, [?PING_WAIT, SessionID]),
+      {ok, SessionID}
   end.
 
 handle_call({balance}, _From, SessionID) ->
