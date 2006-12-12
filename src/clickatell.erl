@@ -97,7 +97,7 @@ code_change(_OldVsn, State, _Extra) ->
 
 %% Pinging
 ping_loop(Time, SessionID) ->
-  error_logger:info_report("Pinging ~s", [SessionID]),
+  error_logger:info_msg("Pinging ~s...~n", [SessionID]),
   case call_ping(SessionID) of
     true           -> timer:sleep(Time), ping_loop(Time, SessionID);
     {error, Error} -> exit({ping_failed, Error})
