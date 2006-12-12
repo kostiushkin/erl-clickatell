@@ -24,10 +24,14 @@
          call_ping/1,
          call_send/3,
          call_status/2]).
+-export([arg_to_sms/1,
+         handle/2]).
 -export([errormsg/1,
          errorcode/1]).
 -export([proplist_to_params/1,
          parse_response/1]).
+
+-record(sms, {to, from, text, proplist}).
 
 -define(BASE_URL,  "https://api.clickatell.com").
 -define(PING_WAIT, timer:minutes(5)).
@@ -162,6 +166,18 @@ do_request(Path, PropList) ->
   HTTPOptions = [],
   Options     = [],
   http:request(post, {URL, Headers, ContentType, Payload}, HTTPOptions, Options).
+
+%% Recieving
+arg_to_sms(Arg) ->
+  PropList = yaws_api:parse_query(Arg),
+  To = list_to_integer(proplists:get_value("to", PropList)),
+  From = list_to_integer(proplists:get_value("from", PropList)),
+  Text = proplists:get_value("text", PropList),
+  {ok, {sms, To, From, Text, PropList}}.
+
+handle(Arg, {M, F}) ->
+  M:F(arg_to_sms(Arg)),
+  ok.
 
 %% Errors
 errormsg(String) ->
