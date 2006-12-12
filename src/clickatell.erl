@@ -17,19 +17,8 @@
          terminate/2,
          code_change/3,
          ping_loop/2]).
--export([call_balance/1,
-         call_check/2,
-         call_cost/2,
-         call_login/3,
-         call_ping/1,
-         call_send/3,
-         call_status/2]).
 -export([arg_to_sms/1,
          handle/2]).
--export([errormsg/1,
-         errorcode/1]).
--export([proplist_to_params/1,
-         parse_response/1]).
 
 -record(sms, {to, from, text, proplist}).
 
@@ -107,7 +96,7 @@ ping_loop(Time, SessionID) ->
     {error, Error} -> exit({ping_failed, Error})
   end.
 
-%% Calling
+%% Sending
 call_balance(SessionID) ->
   case call("/http/getbalance", [{session_id, SessionID}]) of
     {ok, PropList} -> list_to_float(proplists:get_value(credit, PropList));
@@ -178,13 +167,6 @@ arg_to_sms(Arg) ->
 handle(Arg, {M, F}) ->
   M:F(arg_to_sms(Arg)),
   ok.
-
-%% Errors
-errormsg(String) ->
-  string:substr(String, 5).
-
-errorcode(String) ->
-  list_to_integer(string:substr(String, 1, 3)).
 
 %% Coercion
 str_to_number(Str) ->
