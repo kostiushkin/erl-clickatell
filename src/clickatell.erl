@@ -20,8 +20,6 @@
 -export([arg_to_sms/1,
          handle/2]).
 
--record(sms, {to, from, text, proplist}).
-
 -define(BASE_URL,  "https://api.clickatell.com").
 -define(PING_WAIT, timer:minutes(5)).
 
@@ -159,13 +157,15 @@ do_request(Path, PropList) ->
 %% Recieving
 arg_to_sms(Arg) ->
   PropList = yaws_api:parse_query(Arg),
-  To = list_to_integer(proplists:get_value("to", PropList)),
   From = list_to_integer(proplists:get_value("from", PropList)),
   Text = proplists:get_value("text", PropList),
-  {ok, {sms, To, From, Text, PropList}}.
+  {ok, {From, Text, PropList}}.
 
 handle(Arg, {M, F}) ->
-  M:F(arg_to_sms(Arg)),
+  case arg_to_sms(Arg) of
+    {ok, SMS}      -> M:F({message, SMS});
+    {error, Error} -> M:F({error, Error})
+  end,
   ok.
 
 %% Coercion
