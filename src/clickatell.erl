@@ -83,8 +83,7 @@ handle_cast(stop, State) ->
   {stop, normal, State}.
 
 handle_info({http, {RequestID, HTTPResponse}}, State) ->
-  {{_,200,_},_,ResponseText} = HTTPResponse,
-  Response               = parse_response(binary_to_list(ResponseText)),
+  Response               = parse_response({ok, HTTPResponse}),
   [{_, {Command, From}}] = ets:lookup(State#state.callback_ets, RequestID),
   case Command of
     balance -> gen_server:reply(From, handle_balance(Response));
@@ -107,15 +106,15 @@ code_change(_OldVsn, State, _Extra) ->
 
 %% Sessions
 login(User, Pass, API) ->
-  {ok,{{_,200,_},_,ResponseText}} = call("/http/auth", [{user, User}, {password, Pass}, {api_id, API}], true),
-  case parse_response(ResponseText) of
+  HTTPResponse = call("/http/auth", [{user, User}, {password, Pass}, {api_id, API}], true),
+  case parse_response(HTTPResponse) of
     {ok, PropList} -> {ok, proplists:get_value(ok, PropList)};
     {error, Error} -> {stop, Error}
   end.
 
 ping(SessionID) ->
-  {ok,{{_,200,_},_,ResponseText}} = call("/http/ping", [{session_id, SessionID}], true),
-  case parse_response(ResponseText) of
+  HTTPResponse = call("/http/ping", [{session_id, SessionID}], true),
+  case parse_response(HTTPResponse) of
     {ok, _}        -> true;
     {error, Error} -> {error, Error}
   end.
@@ -172,7 +171,7 @@ call(Path, PropList, Sync) ->
   Payload     = proplist_to_params(PropList),
   ContentType = "application/x-www-form-urlencoded",
   HTTPOptions = [],
-  Options     = [{sync, Sync}],
+  Options     = [{sync, Sync}, {body_format, binary}],
   http:request(post, {URL, Headers, ContentType, Payload}, HTTPOptions, Options).
 
 %% Recieving
@@ -202,12 +201,20 @@ proplist_to_params(PropList) ->
   end, PropList)).
 
 %% Decoding
-parse_response(Str) ->
-  {match, Matches} = regexp:matches(Str, "[A-Za-z]+:"),
-  PropList         = parse_response_loop(Str, Matches, []),
-  case proplists:get_value(err, PropList) of
-    undefined -> {ok,    PropList};
-    Error     -> {error, Error}
+parse_response(HTTPResponse) ->
+  case HTTPResponse of
+    {ok, {{_, 200, _}, _, ResponseBinary}} ->
+      Str              = binary_to_list(ResponseBinary),
+      {match, Matches} = regexp:matches(Str, "[A-Za-z]+:"),
+      PropList         = parse_response_loop(Str, Matches, []),
+      case proplists:get_value(err, PropList) of
+        undefined -> {ok,    PropList};
+        Error     -> {error, Error}
+      end;
+    {ok, {{_, Error, _}, _, _}} ->
+      {error, Error};
+    {error, Error} ->
+      {error, Error}
   end.
 
 parse_response_loop(Str, Matches, PropList) ->
