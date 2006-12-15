@@ -95,9 +95,11 @@ handle_info({http, {RequestID, HTTPResponse}}, State) ->
   ets:delete(State#state.callback_ets, RequestID),
   {noreply, State};
 handle_info({'EXIT', {ping_failed, Error}}, State) ->
-  error_logger:error_info("The ping process failed"),
   {stop, {ping_failed, Error}, State}.
 
+terminate({ping_failed, Error}) ->
+  error_logger:error_msg("The ping process failed: ~p", [Error]),
+  ok;
 terminate(_Reason, _State) ->
   ok.
 
