@@ -21,7 +21,8 @@
 
 -record(state, {session_id, callback_ets}).
 
--define(BASE_URL,  "https://api.clickatell.com").
+-define(URL,      "https://api.clickatell.com").
+-define(TIMEOUT,   timer:seconds(15)).
 -define(PING_WAIT, timer:minutes(5)).
 
 %% Starting
@@ -33,19 +34,19 @@ stop() ->
 
 %% Interface
 balance() ->
-  gen_server:call(?MODULE, {balance}).
+  gen_server:call(?MODULE, {balance}, ?TIMEOUT).
 
 check(To) ->
-  gen_server:call(?MODULE, {check, To}).
+  gen_server:call(?MODULE, {check, To}, ?TIMEOUT).
 
 cost(MessageID) ->
-  gen_server:call(?MODULE, {cost, MessageID}).
+  gen_server:call(?MODULE, {cost, MessageID}, ?TIMEOUT).
 
 send(To, Message) ->
-  gen_server:call(?MODULE, {send, To, Message}).
+  gen_server:call(?MODULE, {send, To, Message}, ?TIMEOUT).
 
 status(MessageID) ->
-  gen_server:call(?MODULE, {status, MessageID}).
+  gen_server:call(?MODULE, {status, MessageID}, ?TIMEOUT).
 
 %% Server
 init([User, Pass, API]) ->
@@ -167,7 +168,7 @@ call(Path, PropList) ->
   call(Path, PropList, false).
 
 call(Path, PropList, Sync) ->
-  URL         = ?BASE_URL ++ Path,
+  URL         = ?URL ++ Path,
   Headers     = [{"User-Agent", "erl-clickatell"}],
   Payload     = proplist_to_params(PropList),
   ContentType = "application/x-www-form-urlencoded",
