@@ -112,21 +112,15 @@ login(User, Pass, API) ->
     {error, Error} -> {stop, Error}
   end.
 
-ping(SessionID) ->
-  HTTPResponse = call("/http/ping", [{session_id, SessionID}], true),
-  case parse_response(HTTPResponse) of
-    {ok, _}        -> true;
-    {error, Error} -> {error, Error}
-  end.
-
 ping_loop(Time, SessionID) ->
   error_logger:info_msg("Pinging ~s...~n", [SessionID]),
-  case ping(SessionID) of
-    true           -> timer:sleep(Time), ping_loop(Time, SessionID);
+  HTTPResponse = call("/http/ping", [{session_id, SessionID}], true),
+  case parse_response(HTTPResponse) of
+    {ok, _}        -> timer:sleep(Time), ping_loop(Time, SessionID);
     {error, Error} -> exit({ping_failed, Error})
   end.
 
-%% Sending
+%% Commands
 call_balance(SessionID) ->
   call("/http/getbalance", [{session_id, SessionID}]).
 handle_balance({ok, PropList}) ->
@@ -162,6 +156,7 @@ handle_status({ok, PropList}) ->
 handle_status({error, Error}) ->
   {error, Error}.
 
+%% Sending
 call(Path, PropList) ->
   call(Path, PropList, false).
 
