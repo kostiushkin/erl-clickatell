@@ -14,8 +14,7 @@
          handle_cast/2,
          handle_info/2,
          terminate/2,
-         code_change/3,
-         ping_loop/2]).
+         code_change/3]).
 -export([arg_to_sms/1,
          handle/2]).
 
@@ -53,7 +52,7 @@ init([User, Pass, API]) ->
   process_flag(trap_exit, true),
   case login(User, Pass, API) of
     {ok, SessionID} ->
-      spawn_link(?MODULE, ping_loop, [?PING_WAIT, SessionID]),
+      spawn_link(fun() -> ping_loop(?PING_WAIT, SessionID) end),
       {ok, #state{session_id = SessionID, callback_ets = ets:new(callbacks, [])}};
     {error, Error} ->
       {stop, Error}
