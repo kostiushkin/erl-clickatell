@@ -176,13 +176,9 @@ str_to_number(Str) ->
 
 %% Encoding
 proplist_to_params(PropList) ->
-  lists:foldr(fun({Key,Val}, Acc) ->
-    yaws_api:url_encode(yaws:to_string(Key)) ++ "=" ++ yaws_api:url_encode(yaws:to_string(Val)) ++
-    case Acc of
-      "" -> "";
-      _  -> "&" ++ Acc
-    end
-  end, "", PropList).
+  join("&", lists:map(fun({Key, Val}) ->
+    yaws_api:url_encode(yaws:to_string(Key)) ++ "=" ++ yaws_api:url_encode(yaws:to_string(Val))
+  end, PropList)).
 
 %% Decoding
 parse_response(Str) ->
@@ -209,3 +205,7 @@ parse_left(Str) ->
 
 parse_right(Str) ->
   string:strip(Str).
+
+%% Utils
+join(Sep, List) ->
+    lists:foldl(fun(A, "") -> A; (A, Acc) -> Acc ++ Sep ++ A end, "", List).
