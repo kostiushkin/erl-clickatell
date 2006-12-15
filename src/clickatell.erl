@@ -7,7 +7,7 @@
 -export([balance/0,
          check/1,
          cost/1,
-         send/2,
+         send/1,
          status/1]).
 -export([init/1,
          handle_call/3,
@@ -19,6 +19,7 @@
          handle/2]).
 
 -record(state, {session_id, callback_ets}).
+-record(sms,   {to, from, text, options = []}).
 
 -define(URL,      "https://api.clickatell.com").
 -define(TIMEOUT,   timer:seconds(15)).
@@ -41,8 +42,8 @@ check(To) ->
 cost(MessageID) ->
   gen_server:call(?MODULE, {cost, MessageID}, ?TIMEOUT).
 
-send(To, Message) ->
-  gen_server:call(?MODULE, {send, To, Message}, ?TIMEOUT).
+send(SMS) ->
+  gen_server:call(?MODULE, {send, SMS}, ?TIMEOUT).
 
 status(MessageID) ->
   gen_server:call(?MODULE, {status, MessageID}, ?TIMEOUT).
@@ -70,8 +71,8 @@ handle_call({cost, MessageID}, From, State) ->
   {ok, RequestID} = call_cost(MessageID, State#state.session_id),
   ets:insert(State#state.callback_ets, {RequestID, {cost, From}}),
   {noreply, State};
-handle_call({send, To, Message}, From, State) ->
-  {ok, RequestID} = call_send(To, Message, State#state.session_id),
+handle_call({send, SMS}, From, State) ->
+  {ok, RequestID} = call_send(SMS, State#state.session_id),
   ets:insert(State#state.callback_ets, {RequestID, {send, From}}),
   {noreply, State};
 handle_call({status, MessageID}, From, State) ->
@@ -97,8 +98,8 @@ handle_info({http, {RequestID, HTTPResponse}}, State) ->
 handle_info({'EXIT', {ping_failed, Error}}, State) ->
   {stop, {ping_failed, Error}, State}.
 
-terminate({ping_failed, Error}) ->
-  error_logger:error_msg("The ping process failed: ~p", [Error]),
+terminate({ping_failed, Error}, State) ->
+  error_logger:error_msg("Failed to ping ~s because ~p", [State#state.session_id, Error]),
   ok;
 terminate(_Reason, _State) ->
   ok.
@@ -144,8 +145,8 @@ handle_cost({ok, PropList}) ->
 handle_cost({error, Error}) ->
   {error, Error}.
 
-call_send(To, Message, SessionID) ->
-  call("/http/sendmsg", [{to, To}, {text, Message}, {session_id, SessionID}]).
+call_send(#sms{to = To, from = From, text = Text, options = Opts}, SessionID) ->
+  call("/http/sendmsg", [{to, To}, {from, From}, {text, Text}, {session_id, SessionID}] ++ Opts).
 handle_send({ok, PropList}) ->
   proplists:get_value(id, PropList);
 handle_send({error, Error}) ->
