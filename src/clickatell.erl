@@ -238,4 +238,4 @@ parse_right(Str) ->
 
 %% Utils
 join(Sep, List) ->
-    lists:foldl(fun(A, "") -> A; (A, Acc) -> Acc ++ Sep ++ A end, "", List).
+  lists:foldl(fun(A, "") -> A; (A, Acc) -> Acc ++ Sep ++ A end, "", List).
