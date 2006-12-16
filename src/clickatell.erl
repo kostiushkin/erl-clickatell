@@ -21,7 +21,7 @@
 -record(state, {session_id, callback_ets}).
 -record(sms,   {to, from, text, options = []}).
 
--define(URL,      "https://api.clickatell.com").
+-define(URL,       "https://api.clickatell.com").
 -define(TIMEOUT,   timer:seconds(15)).
 -define(PING_WAIT, timer:minutes(5)).
 
@@ -170,33 +170,35 @@ callback(Path, PropList, Callback) when is_function(Callback) ->
   {ok, RequestID} = call(Path, PropList, false),
   {ok, RequestID, Callback}.
 
-%% Recieving
+%% Receiving
 arg_to_sms(Arg) ->
-  PropList = yaws_api:parse_query(Arg),
-  From = list_to_integer(proplists:get_value("from", PropList)),
-  Text = proplists:get_value("text", PropList),
-  {ok, {From, Text, PropList}}.
+  PropList = arg_to_proplist(Arg),
+  To       = list_to_integer(proplists:get_value("to",   PropList)),
+  From     = list_to_integer(proplists:get_value("from", PropList)),
+  Text     = proplists:get_value("text", PropList),
+  {ok, #sms{to = To, from = From, text = Text, options = PropList}}.
 
 handle(Arg, {M, F}) ->
   case arg_to_sms(Arg) of
-    {ok, SMS}      -> M:F({message, SMS});
+    {ok, SMS}      -> M:F(SMS);
     {error, Error} -> M:F({error, Error})
   end,
   ok.
 
-%% Coercion
+%% Utils
 str_to_number(Str) ->
   try              list_to_integer(Str)
   catch error:_ -> list_to_float(Str)
   end.
 
-%% Encoding
 proplist_to_params(PropList) ->
   join("&", lists:map(fun({Key, Val}) ->
     yaws_api:url_encode(yaws:to_string(Key)) ++ "=" ++ yaws_api:url_encode(yaws:to_string(Val))
   end, PropList)).
 
-%% Decoding
+arg_to_proplist(Arg) ->
+  lists:map(fun({Key,Val}) -> {list_to_atom(Key), Val} end, yaws_api:parse_query(Arg)).
+
 parse_response(HTTPResponse) ->
   case HTTPResponse of
     {ok, {{_, 200, _}, _, ResponseBinary}} ->
@@ -234,6 +236,5 @@ parse_left(Str) ->
 parse_right(Str) ->
   string:strip(Str).
 
-%% Utils
 join(Sep, List) ->
   lists:foldl(fun(A, "") -> A; (A, Acc) -> Acc ++ Sep ++ A end, "", List).
