@@ -103,7 +103,7 @@ code_change(_OldVsn, State, _Extra) ->
 
 %% Sessions
 login(User, Pass, API) ->
-  HTTPResponse = call("/http/auth", [{user, User}, {password, Pass}, {api_id, API}], true),
+  HTTPResponse = call("/http/auth", [{user, User}, {password, Pass}, {api_id, API}]),
   case parse_response(HTTPResponse) of
     {ok, PropList} -> {ok, proplists:get_value(ok, PropList)};
     {error, Error} -> {stop, Error}
@@ -111,7 +111,7 @@ login(User, Pass, API) ->
 
 ping_loop(Time, SessionID) ->
   error_logger:info_msg("Pinging ~s...~n", [SessionID]),
-  HTTPResponse = call("/http/ping", [{session_id, SessionID}], true),
+  HTTPResponse = call("/http/ping", [{session_id, SessionID}]),
   case parse_response(HTTPResponse) of
     {ok, _}        -> timer:sleep(Time), ping_loop(Time, SessionID);
     {error, Error} -> exit({ping_failed, Error})
@@ -155,7 +155,7 @@ handle_status({error, Error}) ->
 
 %% Sending
 call(Path, PropList) ->
-  call(Path, PropList, false).
+  call(Path, PropList, true).
 
 call(Path, PropList, Sync) ->
   URL         = ?URL ++ Path,
