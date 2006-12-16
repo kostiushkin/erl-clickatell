@@ -60,39 +60,33 @@ init([User, Pass, API]) ->
   end.
 
 handle_call({balance}, From, State) ->
-  {ok, RequestID} = call_balance(State#state.session_id),
-  ets:insert(State#state.callback_ets, {RequestID, {balance, From}}),
+  {ok, RequestID, Callback} = call_balance(State#state.session_id),
+  ets:insert(State#state.callback_ets, {RequestID, From, Callback}),
   {noreply, State};
 handle_call({check, To}, From, State) ->
-  {ok, RequestID} = call_check(To, State#state.session_id),
-  ets:insert(State#state.callback_ets, {RequestID, {check, From}}),
+  {ok, RequestID, Callback} = call_check(To, State#state.session_id),
+  ets:insert(State#state.callback_ets, {RequestID, From, Callback}),
   {noreply, State};
 handle_call({cost, MessageID}, From, State) ->
-  {ok, RequestID} = call_cost(MessageID, State#state.session_id),
-  ets:insert(State#state.callback_ets, {RequestID, {cost, From}}),
+  {ok, RequestID, Callback} = call_cost(MessageID, State#state.session_id),
+  ets:insert(State#state.callback_ets, {RequestID, From, Callback}),
   {noreply, State};
 handle_call({send, SMS}, From, State) ->
-  {ok, RequestID} = call_send(SMS, State#state.session_id),
-  ets:insert(State#state.callback_ets, {RequestID, {send, From}}),
+  {ok, RequestID, Callback} = call_send(SMS, State#state.session_id),
+  ets:insert(State#state.callback_ets, {RequestID, From, Callback}),
   {noreply, State};
 handle_call({status, MessageID}, From, State) ->
-  {ok, RequestID} = call_status(MessageID, State#state.session_id),
-  ets:insert(State#state.callback_ets, {RequestID, {status, From}}),
+  {ok, RequestID, Callback} = call_status(MessageID, State#state.session_id),
+  ets:insert(State#state.callback_ets, {RequestID, From, Callback}),
   {noreply, State}.
 
 handle_cast(stop, State) ->
   {stop, normal, State}.
 
 handle_info({http, {RequestID, HTTPResponse}}, State) ->
-  Response               = parse_response({ok, HTTPResponse}),
-  [{_, {Command, From}}] = ets:lookup(State#state.callback_ets, RequestID),
-  case Command of
-    balance -> gen_server:reply(From, handle_balance(Response));
-    check   -> gen_server:reply(From, handle_check(Response));
-    cost    -> gen_server:reply(From, handle_cost(Response));
-    send    -> gen_server:reply(From, handle_send(Response));
-    status  -> gen_server:reply(From, handle_status(Response))
-  end,
+  Response              = parse_response({ok, HTTPResponse}),
+  [{_, From, Callback}] = ets:lookup(State#state.callback_ets, RequestID),
+  gen_server:reply(From, apply(Callback, [Response])),
   ets:delete(State#state.callback_ets, RequestID),
   {noreply, State};
 handle_info({'EXIT', {ping_failed, Error}}, State) ->
@@ -125,35 +119,35 @@ ping_loop(Time, SessionID) ->
 
 %% Commands
 call_balance(SessionID) ->
-  call("/http/getbalance", [{session_id, SessionID}]).
+  callback("/http/getbalance", [{session_id, SessionID}], fun handle_balance/1).
 handle_balance({ok, PropList}) ->
   list_to_float(proplists:get_value(credit, PropList));
 handle_balance({error, Error}) ->
   {error, Error}.
 
 call_check(To, SessionID) ->
-  call("/utils/routeCoverage.php", [{msisdn, To}, {session_id, SessionID}]).
+  callback("/utils/routeCoverage.php", [{msisdn, To}, {session_id, SessionID}], fun handle_check/1).
 handle_check({ok, _}) ->
   true;
 handle_check({error, _}) ->
   false.
 
 call_cost(MessageID, SessionID) ->
-  call("/http/getmsgcharge", [{apimsgid, MessageID}, {session_id, SessionID}]).
+  callback("/http/getmsgcharge", [{apimsgid, MessageID}, {session_id, SessionID}], fun handle_cost/1).
 handle_cost({ok, PropList}) ->
   str_to_number(proplists:get_value(charge, PropList));
 handle_cost({error, Error}) ->
   {error, Error}.
 
 call_send(#sms{to = To, from = From, text = Text, options = Opts}, SessionID) ->
-  call("/http/sendmsg", [{to, To}, {from, From}, {text, Text}, {session_id, SessionID}] ++ Opts).
+  callback("/http/sendmsg", [{to, To}, {from, From}, {text, Text}, {session_id, SessionID}] ++ Opts, fun handle_send/1).
 handle_send({ok, PropList}) ->
   proplists:get_value(id, PropList);
 handle_send({error, Error}) ->
   {error, Error}.
 
 call_status(MessageID, SessionID) ->
-  call("/http/querymsg", [{apimsgid, MessageID}, {session_id, SessionID}]).
+  callback("/http/querymsg", [{apimsgid, MessageID}, {session_id, SessionID}], fun handle_status/1).
 handle_status({ok, PropList}) ->
   str_to_number(proplists:get_value(status, PropList));
 handle_status({error, Error}) ->
@@ -171,6 +165,10 @@ call(Path, PropList, Sync) ->
   HTTPOptions = [],
   Options     = [{sync, Sync}, {body_format, binary}],
   http:request(post, {URL, Headers, ContentType, Payload}, HTTPOptions, Options).
+
+callback(Path, PropList, Callback) when is_function(Callback) ->
+  {ok, RequestID} = call(Path, PropList, false),
+  {ok, RequestID, Callback}.
 
 %% Recieving
 arg_to_sms(Arg) ->
