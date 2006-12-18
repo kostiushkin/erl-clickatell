@@ -83,14 +83,15 @@ handle_call({status, MessageID}, From, State) ->
 handle_cast(stop, State) ->
   {stop, normal, State}.
 
+handle_info({http, {RequestID, {error, Error}}}, State) ->
+  {stop, {http_error, Error, RequestID}, State};
 handle_info({http, {RequestID, HTTPResponse}}, State) ->
-  Response              = parse_response({ok, HTTPResponse}),
   [{_, From, Callback}] = ets:lookup(State#state.callback_ets, RequestID),
-  gen_server:reply(From, apply(Callback, [Response])),
+  gen_server:reply(From, apply(Callback, [HTTPResponse])),
   ets:delete(State#state.callback_ets, RequestID),
   {noreply, State};
-handle_info({'EXIT', _Pid, {ping_failed, Error}}, State) ->
-  {stop, {ping_error, Error}, State};
+handle_info({'EXIT', _Pid, {ping_error, Error}}, State) ->
+  {stop, {ping_error, Error}, State}.
 
 terminate({ping_error, Error}, State) ->
   error_logger:error_msg("Failed to ping ~s because ~p", [State#state.session_id, Error]),
@@ -120,38 +121,43 @@ ping_loop(Time, SessionID) ->
 %% Commands
 call_balance(SessionID) ->
   callback("/http/getbalance", [{session_id, SessionID}], fun handle_balance/1).
-handle_balance({ok, PropList}) ->
-  list_to_float(proplists:get_value(credit, PropList));
-handle_balance({error, Error}) ->
-  {error, Error}.
+handle_balance(HTTPResponse) ->
+  case parse_response(HTTPResponse) of
+    {ok, PropList} -> list_to_float(proplists:get_value(credit, PropList));
+    {error, Error} -> {error, Error}
+  end.
 
 call_check(To, SessionID) ->
   callback("/utils/routeCoverage.php", [{msisdn, To}, {session_id, SessionID}], fun handle_check/1).
-handle_check({ok, _}) ->
-  true;
-handle_check({error, _}) ->
-  false.
+handle_check(HTTPResponse) ->
+  case parse_response(HTTPResponse) of
+    {ok, _}    -> true;
+    {error, _} -> false
+  end.
 
 call_cost(MessageID, SessionID) ->
   callback("/http/getmsgcharge", [{apimsgid, MessageID}, {session_id, SessionID}], fun handle_cost/1).
-handle_cost({ok, PropList}) ->
-  str_to_number(proplists:get_value(charge, PropList));
-handle_cost({error, Error}) ->
-  {error, Error}.
+handle_cost(HTTPResponse) ->
+  case parse_response(HTTPResponse) of
+    {ok, PropList} -> str_to_number(proplists:get_value(charge, PropList));
+    {error, Error} -> {error, Error}
+  end.
 
 call_send(#sms{to = To, from = From, text = Text, options = Opts}, SessionID) ->
   callback("/http/sendmsg", [{to, To}, {from, From}, {text, Text}, {session_id, SessionID}] ++ Opts, fun handle_send/1).
-handle_send({ok, PropList}) ->
-  proplists:get_value(id, PropList);
-handle_send({error, Error}) ->
-  {error, Error}.
+handle_send(HTTPResponse) ->
+  case parse_response(HTTPResponse) of
+    {ok, PropList} -> proplists:get_value(id, PropList);
+    {error, Error} -> {error, Error}
+  end.
 
 call_status(MessageID, SessionID) ->
   callback("/http/querymsg", [{apimsgid, MessageID}, {session_id, SessionID}], fun handle_status/1).
-handle_status({ok, PropList}) ->
-  str_to_number(proplists:get_value(status, PropList));
-handle_status({error, Error}) ->
-  {error, Error}.
+handle_status(HTTPResponse) ->
+  case parse_response(HTTPResponse) of
+    {ok, PropList} -> str_to_number(proplists:get_value(status, PropList));
+    {error, Error} -> {error, Error}
+  end.
 
 %% Sending
 call(Path, PropList) ->
@@ -201,7 +207,7 @@ arg_to_proplist(Arg) ->
 
 parse_response(HTTPResponse) ->
   case HTTPResponse of
-    {ok, {{_, 200, _}, _, ResponseBinary}} ->
+    {{_, 200, _}, _, ResponseBinary} ->
       Str              = binary_to_list(ResponseBinary),
       {match, Matches} = regexp:matches(Str, "[A-Za-z]+:"),
       PropList         = parse_response_loop(Str, Matches, []),
@@ -209,9 +215,7 @@ parse_response(HTTPResponse) ->
         undefined -> {ok,    PropList};
         Error     -> {error, Error}
       end;
-    {ok, {{_, Error, _}, _, _}} ->
-      {error, Error};
-    {error, Error} ->
+    {{_, Error, _}, _, _} ->
       {error, Error}
   end.
 
