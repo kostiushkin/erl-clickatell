@@ -89,10 +89,10 @@ handle_info({http, {RequestID, HTTPResponse}}, State) ->
   gen_server:reply(From, apply(Callback, [Response])),
   ets:delete(State#state.callback_ets, RequestID),
   {noreply, State};
-handle_info({'EXIT', {ping_failed, Error}}, State) ->
-  {stop, {ping_failed, Error}, State}.
+handle_info({'EXIT', _Pid, {ping_failed, Error}}, State) ->
+  {stop, {ping_error, Error}, State};
 
-terminate({ping_failed, Error}, State) ->
+terminate({ping_error, Error}, State) ->
   error_logger:error_msg("Failed to ping ~s because ~p", [State#state.session_id, Error]),
   ok;
 terminate(_Reason, _State) ->
@@ -114,7 +114,7 @@ ping_loop(Time, SessionID) ->
   HTTPResponse = call("/http/ping", [{session_id, SessionID}]),
   case parse_response(HTTPResponse) of
     {ok, _}        -> timer:sleep(Time), ping_loop(Time, SessionID);
-    {error, Error} -> exit({ping_failed, Error})
+    {error, Error} -> exit({ping_error, Error})
   end.
 
 %% Commands
