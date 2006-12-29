@@ -7,6 +7,7 @@
 -export([balance/0,
          check/1,
          cost/1,
+         reply/2,
          send/1,
          status/1]).
 -export([init/1,
@@ -44,6 +45,9 @@ cost(MessageID) ->
 
 send(SMS) ->
   gen_server:call(?MODULE, {send, SMS}, ?TIMEOUT).
+
+reply(#sms{to = To, from = From}, Text) ->
+  send(#sms{to = From, from = To, text = Text}).
 
 status(MessageID) ->
   gen_server:call(?MODULE, {status, MessageID}, ?TIMEOUT).
