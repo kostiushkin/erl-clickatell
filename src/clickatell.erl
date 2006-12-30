@@ -2,6 +2,8 @@
 
 -behaviour(gen_server).
 
+-include("../include/clickatell.hrl").
+
 -export([start_link/3,
          stop/0]).
 -export([balance/0,
@@ -20,7 +22,6 @@
          handle/2]).
 
 -record(state, {session_id, callback_ets}).
--record(sms,   {to, from, text, options = []}).
 
 -define(URL,       "https://api.clickatell.com").
 -define(TIMEOUT,   timer:seconds(15)).
